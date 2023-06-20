@@ -1,0 +1,121 @@
+﻿@page "/"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavagationManager
+
+<div>
+    <input id="Input1" @onclick="() => SetInputIndex(0)" value="This" />
+    <input id="Input2" @onclick="() => SetInputIndex(1)" value="That" />
+    <input id="Input3" @onclick="() => SetInputIndex(2)" value="The Other" />
+</div>
+<br />
+<button disabled="@CaptureButtonDisabled" @onclick="EnableKeyboardCapture">@CaptureButtonText</button>
+<br />
+<br />
+Pressed: @KeyPressed
+
+@code
+{
+    int CurrentInputIndex = -1;
+    string[] InputIds = new string[] { "Input1", "Input2", "Input3" };
+    string KeyPressed = "";
+    string CaptureButtonText = "Capture Keyboard";
+    DotNetObjectReference<Index> ThisComponent;
+    bool CaptureButtonDisabled { get; set; }
+
+    async void LocationChanged(object sender, LocationChangedEventArgs e)
+    {
+        await JSRuntime.InvokeVoidAsync("DisableKeyboardCapture");
+    }
+
+    async Task EnableKeyboardCapture()
+    {
+        await JSRuntime.InvokeVoidAsync("EnableKeyboardCapture", ThisComponent);
+        CaptureButtonText = "Press <ESC> To Exit Capture Mode";
+        CaptureButtonDisabled = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task SetInputIndex(int index)
+    {
+        if (CurrentInputIndex != index)
+        {
+            CurrentInputIndex = index;
+            await JSRuntime.InvokeVoidAsync("SetFocus", InputIds[CurrentInputIndex]);
+        }
+    }
+
+    [JSInvokable]
+    public async Task WindowKeyDown(KeyCodes KeyCode, bool Shift, bool Ctrl, bool Alt)
+    {
+        KeyPressed = "";
+        if (Shift)
+            KeyPressed += "Shift ";
+        if (Ctrl)
+            KeyPressed += "Ctrl ";
+        if (Alt)
+            KeyPressed += "Alt ";
+        KeyPressed += Enum.GetName(typeof(KeyCodes), KeyCode);
+
+        if (KeyCode == KeyCodes.TAB)
+        {
+            if (Shift)
+                await MovePrevious();
+            else
+                await MoveNext();
+        }
+        else if (KeyCode == KeyCodes.RIGHT_ARROW)
+        {
+            await MoveNext();
+        }
+        else if (KeyCode == KeyCodes.DOWN_ARROW)
+        {
+            await MoveNext();
+        }
+        else if (KeyCode == KeyCodes.LEFT_ARROW)
+        {
+            await MovePrevious();
+        }
+        else if (KeyCode == KeyCodes.UP_ARROW)
+        {
+            await MovePrevious();
+        }
+        else if (KeyCode == KeyCodes.ESCAPE)
+        {
+            await JSRuntime.InvokeVoidAsync("DisableKeyboardCapture");
+            CaptureButtonDisabled = false;
+            CaptureButtonText = "Capture Keyboard";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable]
+    public async Task WindowKeyUp(KeyCodes KeyCode, bool Shift, bool Ctrl, bool Alt)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task MoveNext()
+    {
+        if (CurrentInputIndex < InputIds.Length - 1)
+            CurrentInputIndex++;
+        else CurrentInputIndex = 0;
+        await JSRuntime.InvokeVoidAsync("SetFocus", InputIds[CurrentInputIndex]);
+    }
+
+    async Task MovePrevious()
+    {
+        if (CurrentInputIndex > 0)
+            CurrentInputIndex--;
+        else CurrentInputIndex = InputIds.Length - 1;
+        await JSRuntime.InvokeVoidAsync("SetFocus", InputIds[CurrentInputIndex]);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            ThisComponent = DotNetObjectReference.Create(this);
+            NavagationManager.LocationChanged += LocationChanged;
+        }
+    }
+}
