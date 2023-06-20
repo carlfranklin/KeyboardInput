@@ -1,4 +1,7 @@
-﻿public enum KeyCodes
+﻿/// <summary>
+/// Codes to match the key codes used in the JavaScript code
+/// </summary>
+public enum KeyCodes
 {
     BACKSPACE = 8,
     TAB = 9,

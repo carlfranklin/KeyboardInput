@@ -3,11 +3,13 @@
 @inject NavigationManager NavagationManager
 
 <div>
+    <!-- You must have Ids for every input that you want to navigate to with tabs and arrows -->
     <input id="Input1" @onclick="() => SetInputIndex(0)" value="This" />
     <input id="Input2" @onclick="() => SetInputIndex(1)" value="That" />
     <input id="Input3" @onclick="() => SetInputIndex(2)" value="The Other" />
 </div>
 <br />
+<!-- This button will toggle keyboard capture on and off -->
 <button disabled="@CaptureButtonDisabled" @onclick="EnableKeyboardCapture">@CaptureButtonText</button>
 <br />
 <br />
@@ -15,18 +17,36 @@ Pressed: @KeyPressed
 
 @code
 {
-    int CurrentInputIndex = -1;
+    // this array hold the Ids of the inputs that we want to navigate to with tabs and arrows
     string[] InputIds = new string[] { "Input1", "Input2", "Input3" };
+
+    // When navigating, this holds the index in InputIds[] of the selected input
+    int CurrentInputIndex = -1;
+
+    // Displays the key that was just pressed in english.
     string KeyPressed = "";
+
+    // This text is a variable because it changes depending on the capture mode.
     string CaptureButtonText = "Capture Keyboard";
+
+    // Required for JavaScript to call us back
     DotNetObjectReference<Index> ThisComponent;
+
+    // Used to enable and disable the Capture toggle button
     bool CaptureButtonDisabled { get; set; }
 
-    async void LocationChanged(object sender, LocationChangedEventArgs e)
-    {
-        await JSRuntime.InvokeVoidAsync("DisableKeyboardCapture");
-    }
+    /// <summary>
+    /// Occurs when the user has navigated to a different @page 
+    /// even though we have no other pages in this project
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    async void LocationChanged(object sender, LocationChangedEventArgs e) => await JSRuntime.InvokeVoidAsync("DisableKeyboardCapture");
 
+    /// <summary>
+    /// Called by the button click to turn on keyboard capture
+    /// </summary>
+    /// <returns></returns>
     async Task EnableKeyboardCapture()
     {
         await JSRuntime.InvokeVoidAsync("EnableKeyboardCapture", ThisComponent);
@@ -35,6 +55,11 @@ Pressed: @KeyPressed
         await InvokeAsync(StateHasChanged);
     }
 
+    /// <summary>
+    /// We break this out into a method so we can call SetFocus in JavaScript.
+    /// </summary>
+    /// <param name="index"></param>
+    /// <returns></returns>
     async Task SetInputIndex(int index)
     {
         if (CurrentInputIndex != index)
@@ -44,6 +69,15 @@ Pressed: @KeyPressed
         }
     }
 
+    /// <summary>
+    /// This gets called by our JavaScript whenever a key is pressed that needs to be
+    /// handled for navigation. 
+    /// </summary>
+    /// <param name="KeyCode"></param>
+    /// <param name="Shift"></param>
+    /// <param name="Ctrl"></param>
+    /// <param name="Alt"></param>
+    /// <returns></returns>
     [JSInvokable]
     public async Task WindowKeyDown(KeyCodes KeyCode, bool Shift, bool Ctrl, bool Alt)
     {
@@ -88,12 +122,24 @@ Pressed: @KeyPressed
         }
     }
 
+    /// <summary>
+    /// This is called by JavaScript when a key is released.
+    /// </summary>
+    /// <param name="KeyCode"></param>
+    /// <param name="Shift"></param>
+    /// <param name="Ctrl"></param>
+    /// <param name="Alt"></param>
+    /// <returns></returns>
     [JSInvokable]
     public async Task WindowKeyUp(KeyCodes KeyCode, bool Shift, bool Ctrl, bool Alt)
     {
         await InvokeAsync(StateHasChanged);
     }
 
+    /// <summary>
+    /// Move to the next input in the array
+    /// </summary>
+    /// <returns></returns>
     async Task MoveNext()
     {
         if (CurrentInputIndex < InputIds.Length - 1)
@@ -102,6 +148,10 @@ Pressed: @KeyPressed
         await JSRuntime.InvokeVoidAsync("SetFocus", InputIds[CurrentInputIndex]);
     }
 
+    /// <summary>
+    /// Move to the previous input in the array
+    /// </summary>
+    /// <returns></returns>
     async Task MovePrevious()
     {
         if (CurrentInputIndex > 0)
@@ -110,11 +160,17 @@ Pressed: @KeyPressed
         await JSRuntime.InvokeVoidAsync("SetFocus", InputIds[CurrentInputIndex]);
     }
 
+    /// <summary>
+    /// You can't reliably call into JavaScript until after the first render.
+    /// </summary>
+    /// <param name="firstRender"></param>
     protected override void OnAfterRender(bool firstRender)
     {
         if (firstRender)
         {
+            // Create the component to pass to JavaScript to allow callbacks.
             ThisComponent = DotNetObjectReference.Create(this);
+            // Handle the LocationChanged event
             NavagationManager.LocationChanged += LocationChanged;
         }
     }
